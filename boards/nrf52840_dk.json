@@ -40,6 +40,7 @@
     "protocols": [
       "jlink",
       "nrfjprog",
+      "nrfutil_raw",
       "stlink",
       "blackmagic",
       "cmsis-dap",
