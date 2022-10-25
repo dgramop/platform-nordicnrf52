@@ -123,6 +123,22 @@ env.Append(
 
 upload_protocol = env.subst("$UPLOAD_PROTOCOL")
 
+if "nrfutil_raw" == upload_protocol:
+    env.Append(
+            BUILDERS=dict(
+                PackageDfu=Builder(
+                    action=env.VerboseAction(" ".join([
+                        'nrfutil pkg generate --hw-version 52 --sd-req=0x00 --application',
+                        "$SOURCES",
+                        "--application-version 1",
+                        "$TARGET" # previously was firmware.zip
+                        ]), "Calling nrfUTIL"
+                    )
+                ),
+                SignBin = env.VerboseAction("echo nimpl", "signing not implemented")
+            )
+        )
+
 if "nrfutil" == upload_protocol or (
     board.get("build.bsp.name", "nrf5") == "adafruit"
     and "arduino" in env.get("PIOFRAMEWORK", [])
@@ -198,7 +214,7 @@ else:
         target_firm = env.MergeHex(
             join("$BUILD_DIR", "${PROGNAME}"),
             env.ElfToHex(join("$BUILD_DIR", "userfirmware"), target_elf))
-    elif "nrfutil" == upload_protocol:
+    elif "nrfutil" == upload_protocol or "nrfutil_raw" == upload_protocol:
         target_firm = env.PackageDfu(
             join("$BUILD_DIR", "${PROGNAME}"),
             env.ElfToHex(join("$BUILD_DIR", "${PROGNAME}"), target_elf))
@@ -332,6 +348,25 @@ elif upload_protocol == "nrfutil":
             "--singlebank",
         ],
         UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS -pkg $SOURCE'
+    )
+    upload_actions = [
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
+        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
+    ]
+
+elif upload_protocol == "nrfutil_raw":
+    # nrfutil dfu serial -pkg firmware.zip -p /dev/cu.usbmodemEF7F5F806A6F1 -b 115200
+    env.Replace(
+        UPLOADER="nrfutil",
+        UPLOADERFLAGS=[
+            "dfu",
+            "serial",
+            "-p",
+            "$UPLOAD_PORT",
+            '-b',
+            '115200'
+        ],
+        UPLOADCMD='$UPLOADER $UPLOADERFLAGS -pkg $SOURCE'
     )
     upload_actions = [
         env.VerboseAction(BeforeUpload, "Looking for upload port..."),
